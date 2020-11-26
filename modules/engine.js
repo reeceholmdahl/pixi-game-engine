@@ -1,3 +1,5 @@
+import { Renderer } from './renderer.js';
+
 /**
  * HOLISTIC NOTES:
  * - engine class, update sprites for all physbodies
@@ -82,7 +84,8 @@ export class Physbody {
 
         // Create and update sprite
         this.sprite = new PIXI.Sprite(texture);
-        this.sprite.name = renderPriority;
+        this.sprite.zIndex = renderPriority;
+        this.sprite.visible = false;
         this.updateSprite();
 
         // Add this physbody to, depending on the type, the static bodies array or dynamic bodies array
@@ -194,9 +197,11 @@ export class Physics {
 
     /**
      * Step the game physics one iteration forwards with respect to the data of all the dynamic physbodies
-     * @param {Number} elapsedMS The elapsed time in ms from the last frame to this one
      */
-    static step(elapsedMS) {
+    static step() {
+
+        // Get delta ms from renderer; amount of time between last frame and this frame in ms
+        const deltaMS = Renderer.getDeltaMS();
 
         // Local array containing all the physbodies
         const entities = Physics.dynamicBodies;
@@ -215,14 +220,54 @@ export class Physics {
             if (entity.gravity) Physics.gravity(entity);
             
             // Update the physbody's velocity
-            entity.vx += entity.ax * elapsedMS;
-            entity.vy += entity.ay * elapsedMS;
+            entity.vx += entity.ax * deltaMS;
+            entity.vy += entity.ay * deltaMS;
 
             // Update the physbody's position
-            entity.x += entity.vx * elapsedMS;
-            entity.y += entity.vy * elapsedMS;
+            entity.x += entity.vx * deltaMS;
+            entity.y += entity.vy * deltaMS;
 
             if (entity.wrapY) Physics.wrapY(entity);
+        }
+    }
+
+    /**
+     * Iterates through the dyanmic body array and updates each attached sprite
+     */
+    static updateSprites() {
+        // Updates each dynamic body's attached sprite
+        Physics.dynamicBodies.forEach((physbody, index) => {
+            physbody.updateSprite();
+        });
+    }
+
+    /**
+     * Iterates through each of the respective physbody arrays and removes any invisible items
+     */
+    static purgeUnrendered() {
+
+        // Remove all invisible dynamic bodies from its respective array
+        for (let i = 0; i < Physics.dynamicBodies.length; i++) {
+            if (!Physics.dynamicBodies[i].sprite.visible) {
+                Physics.dynamicBodies.splice(i, 1);
+                i--;
+            }
+        }
+
+        // Remove all invisible static bodies from its respective array
+        for (let i = 0; i < Physics.staticBodies.length; i++) {
+            if (!Physics.staticBodies[i].sprite.visible) {
+                Physics.staticBodies.splice(i, 1);
+                i--;
+            }
+        }
+
+        // Remove all invisible symbolic bodies from its respective array
+        for (let i = 0; i < Physics.symbolicBodies.length; i++) {
+            if (!Physics.symbolicBodies[i].sprite.visible) {
+                Physics.symbolicBodies.splice(i, 1);
+                i--;
+            }
         }
     }
 
@@ -235,7 +280,7 @@ export class Physics {
     }
 
     /**
-     * Set the y-axis acceleration to the gravity modifier
+     * Set the y-axis acceleration of the physbody to the gravity modifier
      * @param {Physbody} physbody The physbody to apply gravity to
      */
     static gravity(physbody) {
@@ -245,6 +290,10 @@ export class Physics {
         }
     }
 
+    /**
+     * Wraps the physbody when it reaches the set extremes on the y-axis
+     * @param {Physbody} physbody The physbody to wrap on the y-axis
+     */
     static wrapY(physbody) {
         if (physbody.y > Physics.WRAP_Y_BOTTOM) {
             physbody.y = Physics.WRAP_Y_TOP - physbody.height;
