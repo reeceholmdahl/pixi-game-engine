@@ -1,6 +1,7 @@
 import { Scene, Renderer, TickerFunction } from './modules/renderer.js';
 import * as ENGINE from './modules/engine.js';
 import { getActiveKeys } from './modules/player.input.js';
+import { setCookie, getCookie } from './modules/cookie_monster.js';
 
 // Called first, initializes the renderer
 Renderer.init();
@@ -140,6 +141,7 @@ const customCollisionFunctions = new TickerFunction(ENGINE.CollisionHandler.exec
 const collisionResolution = new TickerFunction(ENGINE.CollisionHandler.resolveCollisions, this, -4);
 const updateSprites = new TickerFunction(ENGINE.Physics.updateSprites, this, -5);
 
+// Standard function set
 const stdSet = [physics, collisionDetection, customCollisionFunctions, collisionResolution, updateSprites];
 
 /**
@@ -188,14 +190,33 @@ const og_buddadawg = new Scene((resources, container) => {
         restart(true)
     });
 
+    /**
+     * Restarts the level, with a parameter to indicate whether or not the player won
+     * @param {Boolean} justWon Whether or not the restart was after a win
+     */
     function restart(justWon) {
+        
+        // Reset game has started variable
         og_buddadawg.hasStarted = false;
+
+        // Set restart time to now to make sure there is key delay before begin
         og_buddadawg.restartTime = Date.now();
+
+        // If restarting after a win, additional functionality
         if (justWon) {
+
+            // How long this run took
             const runTime = Date.now() - og_buddadawg.startTime;
-            console.log(runTime);
+
+            // Push the run time to the highscores array and sort it
             og_buddadawg.highscores.push(runTime);
             og_buddadawg.highscores.sort((a,b) => { return a-b });
+
+            // Limit the array size to 5 so there aren't cookie issues this time
+            og_buddadawg.highscores.splice(5, og_buddadawg.highscores.length - 5);
+
+            // Set the highscore cookie to the array
+            setCookie('og_highscores', og_buddadawg.highscores.join('+'));
         }
     }
 
@@ -203,41 +224,58 @@ const og_buddadawg = new Scene((resources, container) => {
 
     // OG Buddadawg game loop ticker function
     const gameLoop = new TickerFunction(() => {
+
+        // Functionality to loop while game hasn't started
         if (!og_buddadawg.hasStarted || false) {
         
+            // If the highscore array doesn't exist, create it
             if (!(og_buddadawg.highscores instanceof Array)) og_buddadawg.highscores = [];
 
+            // Import the saved highscores cookie, if it exists
+            const savedHighscores = getCookie('og_highscores') || '';
+            if (savedHighscores.includes('+')) {
+                og_buddadawg.highscores = savedHighscores.split('+');
+            }
+
+            // HTML page functionality: timer and highscores table
+            document.getElementById('og_timer').innerHTML = 'Not started';
             const table = document.getElementById('og_highscores_table');
             let i = 0;
             for (const el of table.children) {
-                el.innerHTML = `${i < og_buddadawg.highscores.length ? og_buddadawg.highscores[i] + "ms" : "No score yet"}`;
+                el.innerHTML = `${i < og_buddadawg.highscores.length ? og_buddadawg.highscores[i] + 'ms' : 'No score yet'}`;
                 i++;
             }
 
-            document.getElementById('og_timer').innerHTML = 'Not started';
-
+            // If the run hasn't started, lock the player in place; fixes collision issues
             player.vx = 0;
             player.vy = 0;
             player.x = 0;
             player.y = 590;
 
+            // Ensure that this variable is initialized
             og_buddadawg.startTime = 0;
 
+            // Get the current active keys
             const activeKeys = getActiveKeys();
 
+            // Movement keys for this game
             const left = activeKeys.a || activeKeys.ArrowLeft || false;
             const right = activeKeys.d || activeKeys.ArrowRight || false;
             const up = activeKeys.w || activeKeys.ArrowUp || activeKeys[' '] || false;
 
+            // Checks if the time since restart has exceeded 150ms; fixes instant restart, and a key has been re-activated since restart
             if (Date.now() - og_buddadawg.restartTime > 150 && ((left && left != (og_buddadawg.lastLeft || false)) || (right && right != (og_buddadawg.lastRight || false)) || (up && up != (og_buddadawg.lastUp || false)))) {
                 og_buddadawg.hasStarted = true;
                 og_buddadawg.startTime = Date.now();
             }
 
+            // Set the last pressed state for the keys; helps with instant restart fix
             og_buddadawg.lastLeft = left;
             og_buddadawg.lastRight = right;
             og_buddadawg.lastUp = up;
         } else {
+
+            // Update the timer while game is running
             const runTime = Date.now() - og_buddadawg.startTime;
             document.getElementById('og_timer').innerHTML = `${runTime}ms`;
         }
@@ -256,36 +294,6 @@ const og_buddadawg = new Scene((resources, container) => {
     // Set up functions
     og_buddadawg.functions = stdSet.concat(movement, gameLoop);
 });
-
-const testScene = new Scene((resources, container) => {
-
-    const stage = container;
-
-    // Build player
-    const player = new ENGINE.Physbody(100, 10, 80, 80, ENGINE.Physbody.TYPE.DYNAMIC, 0, resources.buddadawg.texture).addToContainer(stage);
-    player.setGravity(true);
-
-    // Build floor
-    const floor = new ENGINE.Physbody(0, 695, 1280, 25).addToContainer(stage);
-    floor.sprite.tint = 0x59a608;
-
-    // Testing platforms
-    const obstacle = new ENGINE.Physbody(300, 300, 200, 100).addToContainer(stage);
-    const obstacle2 = new ENGINE.Physbody(300, 100, 200, 100).addToContainer(stage);
-    const platform = new ENGINE.Physbody(350, 450, 200, 25).addToContainer(stage);
-
-    // Player movement handling
-    const playerInput = new newPlayerInput(player);
-
-    // Movement ticker function
-    const movement = new TickerFunction(() => {
-        playerInput.movement();
-    }, this, 1);
-
-    // Set up functions
-    testScene.functions = stdSet.concat(movement);
-});
-
 
 // Loads the default scene
 const DEFAULT_SCENE = og_buddadawg;
