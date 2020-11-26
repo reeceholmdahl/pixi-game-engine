@@ -18,7 +18,7 @@ class AssetLoader {
      * @param {String} location Location of the asset
      */
     static add(name, location) {
-        
+
         // Access the loader and add the resource to the list
         RENDERER.loader.add(name, location);
 
@@ -32,10 +32,10 @@ export class TickerFunction {
     /**
      * A function that will be run by the ticker when its respective scene is loaded
      * @param {Function} func The function to be run
-     * @param {*} context The context of the function; helps with removal, usually this or the scene it resides in
-     * @param {Number} priority The priority of the function; functions are executed in descending order based on priority
+     * @param {*} context The context of the function; helps with removal, usually this or the scene it resides in. Defaults to null.
+     * @param {Number} priority The priority of the function; functions are executed in descending order based on priority. Defaults to 0.
      */
-    constructor(func, context, priority) {
+    constructor(func, context = null, priority = 0) {
         this.func = func;
         this.context = context;
         this.priority = priority;

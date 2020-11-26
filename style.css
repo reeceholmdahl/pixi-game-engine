@@ -18,3 +18,19 @@ body {
 #display {
   border: 2px dashed red;
 }
+
+#og_timer {
+  position: absolute;
+  bottom: 80px;
+  margin: 0 auto;
+}
+
+#og_highscores {
+  position: absolute;
+  margin: 0 auto;
+  left: 120px;
+}
+
+.hide {
+  display: none;
+}

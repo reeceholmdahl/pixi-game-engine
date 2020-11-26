@@ -317,7 +317,7 @@ Physics.symbolicBodies = [];
  * @see Physics.gravity
  * @see Physics.wrapY
  */
-Physics.GRAVITY_AY = 0.0035;
+Physics.GRAVITY_AY = 0.0030; // 0.0035
 Physics.TERMINAL_VELOCITY = 4.5;
 Physics.WRAP_Y_BOTTOM = 920;
 Physics.WRAP_Y_TOP = -200;
@@ -388,11 +388,11 @@ export class CollisionHandler {
 
                     const overlap = CollisionHandler.calculateOverlap(dynamicBody, staticBody);
 
-                    // // If the dynamic body if this collision has a custom collision function, add it to the custom collision function execution array
-                    // if (dynamicBody.customFunctions.length > 0) CollisionHandler.customFunctionsThisStep.push.apply(CollisionHandler.customFunctionsThisStep, dynamicBody.customFunctions);
+                    // If the dynamic body if this collision has a custom collision function, add it to the custom collision function execution array
+                    if (dynamicBody.customFunctions.length > 0) CollisionHandler.customFunctionsThisStep.push.apply(CollisionHandler.customFunctionsThisStep, dynamicBody.customFunctions);
 
-                    // // If the static body if this collision has a custom collision function, add it to the custom collision function execution array
-                    // if (staticBody.customFunctions.length > 0) CollisionHandler.customFunctionsThisStep.push.apply(CollisionHandler.customFunctionsThisStep, staticBody.customFunctions);
+                    // If the static body if this collision has a custom collision function, add it to the custom collision function execution array
+                    if (staticBody.customFunctions.length > 0) CollisionHandler.customFunctionsThisStep.push.apply(CollisionHandler.customFunctionsThisStep, staticBody.customFunctions);
 
                     // Add this collision to the array of collisions this game step
                     CollisionHandler.collisionsThisStep.push({
