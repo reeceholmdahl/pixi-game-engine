@@ -2,10 +2,13 @@ import { Scene, Renderer, TickerFunction } from './modules/renderer.js';
 import * as ENGINE from './modules/engine.js';
 import { getActiveKeys } from './modules/player.input.js';
 
-Renderer.add('buddadawg', '/buddadawg.png');
-Renderer.load();
+// Called first, initializes the renderer
+Renderer.init();
 
-// Setup functions
+// Add game assets; images, etc.
+Renderer.add('buddadawg', '/buddadawg.png');
+
+// New player input, for all stages besides the og_buddadawg stage
 class newPlayerInput {
 
     constructor(physbody) {
@@ -74,8 +77,12 @@ const updateSprites = new TickerFunction(ENGINE.Physics.updateSprites, this, -5)
 
 const stdSet = [physics, collisionDetection, customCollisionFunctions, collisionResolution, updateSprites];
 
+/**
+ * Level building starts here. Using the Scene class and building an anonymous function right in the constructor because that looks the best. Almost identical to the
+ * setup function you'd build in a single file PIXI system, just with a passed container instead of a stage property underneath the renderer.
+ */
 
-// Budda dawg level scene
+// OG Buddadawg level scene ported to new engine
 const og_buddadawg = new Scene((resources, container) => {
 
     // Make character
@@ -145,4 +152,7 @@ const testScene = new Scene((resources, container) => {
     testScene.functions = stdSet.concat(movement);
 });
 
-Renderer.loadScene(testScene);
+
+// Loads the default scene
+const DEFAULT_SCENE = og_buddadawg;
+Renderer.loadScene(DEFAULT_SCENE);

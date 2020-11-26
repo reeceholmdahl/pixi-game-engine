@@ -5,10 +5,10 @@ const RENDER_WIDTH = 1280;
 const RENDER_HEIGHT = 720;
 const HTML_PARENT_NAME = 'display';
 
-const renderer = new PIXI.Application({
-    width: RENDER_WIDTH,
-    height: RENDER_HEIGHT,
-});
+/**
+ * The variable for the PIXI renderer. @see Renderer.init
+ */
+let RENDERER
 
 class AssetLoader {
     
@@ -18,7 +18,11 @@ class AssetLoader {
      * @param {String} location Location of the asset
      */
     static add(name, location) {
-        renderer.loader.add(name, location);
+        
+        // Access the loader and add the resource to the list
+        RENDERER.loader.add(name, location);
+
+        // Return self for nice, easy method chaining
         return this;
     }
 }
@@ -26,10 +30,10 @@ class AssetLoader {
 export class TickerFunction {
 
     /**
-     * A function that will be run by the ticker
-     * @param {Function} func 
-     * @param {*} context 
-     * @param {Number} priority 
+     * A function that will be run by the ticker when its respective scene is loaded
+     * @param {Function} func The function to be run
+     * @param {*} context The context of the function; helps with removal, usually this or the scene it resides in
+     * @param {Number} priority The priority of the function; functions are executed in descending order based on priority
      */
     constructor(func, context, priority) {
         this.func = func;
@@ -40,28 +44,58 @@ export class TickerFunction {
 
 export class Scene {
 
+    /**
+     * Create a new scene. Should be constructed using an anonymous function in the constructor; passing the resources property and the container property
+     * into the body of the function, where the scene building happens.
+     * @param {Function<Resources, PIXI.Container>} setup The setup function; the Renderer class passes it the resources that were loaded, and a container to add sprites to
+     */
     constructor(setup) {
+        
+        // Setup function
         this.setup = setup;
-        this.container = new PIXI.Container();
+
+        // Function array
         this.functions = [];
+
+        // Sprite container
+        this.container = new PIXI.Container();
     }
 }
 
 export class Renderer {
 
+    /**
+     * Initializes the PIXI renderer. Needs to be called before any asset loading or calls to this class.
+     */
+    static init() {
+
+        // Initialize the PIXI application
+        RENDERER = new PIXI.Application({
+            width: RENDER_WIDTH,
+            height: RENDER_HEIGHT,
+        });
+
+        // Append the renderer view to the HTML page
+        document.getElementById(HTML_PARENT_NAME).appendChild(RENDERER.view);
+    }
+
+    /**
+     * Add a game asset; image, spritesheet, etc.
+     * @param {String} name The retrievable name of the asset; used later to get from resources
+     * @param {String} location The location of the asset
+     */
     static add(name, location) {
         return AssetLoader.add(name, location);
     }
 
-    static load() {
-        document.getElementById(HTML_PARENT_NAME).appendChild(renderer.view);
-    }
-
-    static getDeltaMS() {
-        return renderer.ticker.deltaMS;
-    }
-
+    /**
+     * Loads a scene to the PIXI renderer. @see Scene
+     * @param {Scene} scene The scene to load
+     */
     static loadScene(scene) {
+
+        // Stop the ticker during scene loads
+        RENDERER.ticker.stop();
 
         // If the current scene was previously set, clean up Render class scene property for new scene to load
         if (Renderer.scene instanceof Scene) {
@@ -71,12 +105,16 @@ export class Renderer {
                 sprite.visible = false;
             }
 
+            // After setting all of the old scene sprites invisible, purge them from the physics
             Physics.purgeUnrendered();
 
             // Remove all functions from the old scene from the ticker
             for (const func of Renderer.scene.functions) {
-                renderer.ticker.remove(func.func, func.context);
+                RENDERER.ticker.remove(func.func, func.context);
             }
+
+            // Reset the functions array in the old scene
+            Renderer.scene.functions = [];
         }
 
         // Set the renderer scene to the new one
@@ -86,7 +124,9 @@ export class Renderer {
         const container = new PIXI.Container();
 
         // Call new scene setup method
-        renderer.loader.load((loader, resources) => {
+        RENDERER.loader.load((loader, resources) => {
+
+            // Call the scene setup method; build the scene
             scene.setup(resources, container);
 
             // Make all sprites part of this scene visible
@@ -96,13 +136,28 @@ export class Renderer {
 
             // Add new scene functions to ticker
             Renderer.scene.functions.forEach(func => {
-                renderer.ticker.add(func.func, func.context, func.priority);
+                RENDERER.ticker.add(func.func, func.context, func.priority);
             });
         });
 
+        // Set the container of the new scene to the one generated through the setup method
         Renderer.scene.container = container;
-        renderer.stage = container;
+
+        // Set the current stage view to the new scene's container
+        RENDERER.stage = container;
+
+        // Restart the ticker now that everything has been loaded
+        RENDERER.ticker.start();
+    }
+
+    /**
+     * Gets the delta time in ms. Capped based on the minimum FPS set in the ticker, and scaled by the ticker's speed.
+     * @returns {Number} The time in ms between the last frame and this one
+     */
+    static getDeltaMS() {
+        return RENDERER.ticker.deltaMS;
     }
 }
 
+// Static container property underneath the Renderer class
 Renderer.scene = null;
