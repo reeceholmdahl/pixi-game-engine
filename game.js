@@ -7,8 +7,8 @@ import { setCookie, getCookie } from './modules/cookie_monster.js';
 Renderer.init();
 
 // Add game assets; images, etc.
-Renderer.add('buddadawg', '/buddadawg.png')
-        .add('budda', '/budda.png');
+Renderer.add('buddadawg', './img/buddadawg.png')
+        .add('budda', './img/budda.png');
 
 class oldPlayerInput {
 
