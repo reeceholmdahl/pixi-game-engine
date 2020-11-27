@@ -85,8 +85,8 @@ class newPlayerInput {
 
     movement() {
         // Movement constants
-        const move = 0.5;
-        const jump = 1.15;
+        const move = 0.55;
+        const jump = 1;
         const doubleJumpMod = 1.025;
 
         // Get current active keys
@@ -179,7 +179,7 @@ const og_buddadawg = new Scene((resources, container) => {
     const filler4 = new ENGINE.Physbody(375, 500, 25, 190).addToContainer(container);
 
     // Level ender
-    const offScreenReset = new ENGINE.Physbody(-720, 1000, 2000, 100, ENGINE.Physbody.TYPE.SYMBOLIC);
+    const offScreenReset = new ENGINE.Physbody(-720, 1000, 2000, 100, ENGINE.Physbody.TYPE.SYMBOLIC).addToContainer(container);
     offScreenReset.customFunctions.push(() => {
         restart(false)
     });
@@ -296,5 +296,4 @@ const og_buddadawg = new Scene((resources, container) => {
 });
 
 // Loads the default scene
-const DEFAULT_SCENE = og_buddadawg;
-Renderer.loadScene(DEFAULT_SCENE);
+Renderer.loadScene(og_buddadawg);

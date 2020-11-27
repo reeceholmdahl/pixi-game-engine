@@ -200,6 +200,8 @@ export class Physics {
      */
     static step() {
 
+        if (Physics.iteration % 4 == 0) Physics.purgeUnrendered();
+
         // Get delta ms from renderer; amount of time between last frame and this frame in ms
         const deltaMS = Renderer.getDeltaMS();
 
@@ -229,6 +231,8 @@ export class Physics {
 
             if (entity.wrapY) Physics.wrapY(entity);
         }
+
+        Physics.iteration++;
     }
 
     /**
@@ -311,6 +315,9 @@ export class Physics {
 Physics.staticBodies = [];
 Physics.dynamicBodies = [];
 Physics.symbolicBodies = [];
+
+// The current physics step the engine is on
+Physics.iteration = 0;
 
 /**
  * Create static constants for the Physics class; gravity acceleration, terminal velocity, and screen wrapping bounds
@@ -491,6 +498,7 @@ export class CollisionHandler {
 
                     if (dynamicBodyChangeSlope > cachedToCornerSlope) {
                         dynamicBody.y -= overlap.y;
+                        dynamicBody.grounded = true; // remove if glitchy
                     } else {
                         dynamicBody.x -= overlap.x;
                     }
@@ -508,6 +516,7 @@ export class CollisionHandler {
 
                     if (dynamicBodyChangeSlope > cachedToCornerSlope) {
                         dynamicBody.y -= overlap.y;
+                        dynamicBody.grounded = true; // remove if glitchy
                     } else {
                         dynamicBody.x += overlap.x;
                     }

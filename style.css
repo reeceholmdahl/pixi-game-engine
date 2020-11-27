@@ -16,7 +16,10 @@ body {
 }
 
 #display {
-  border: 2px dashed red;
+  height: 720px;
+  flex-shrink: 0;
+  order: 1;
+  /* border: 2px dashed red; */
 }
 
 #og_timer {

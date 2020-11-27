@@ -134,6 +134,10 @@ export class Renderer {
                 sprite.visible = true;
             }
 
+            container.children.sort((a, b) => {
+                return a.zIndex - b.zIndex;
+            });
+
             // Add new scene functions to ticker
             Renderer.scene.functions.forEach(func => {
                 RENDERER.ticker.add(func.func, func.context, func.priority);
