@@ -1,4 +1,178 @@
-import { Renderer } from './renderer.js';
+let application;
+
+export const RENDER_WIDTH = 1280;
+export const RENDER_HEIGHT = 720;
+const HTML_PARENT_NAME = 'display';
+
+export class Renderer {
+
+    static init() {
+
+        // Initialize the PIXI application
+        application = new PIXI.Application({
+            width: RENDER_WIDTH,
+            height: RENDER_HEIGHT,
+        });
+
+        // Append the renderer view to the HTML page
+        document.getElementById(HTML_PARENT_NAME).appendChild(application.view);
+    }
+
+    /**
+     * @param {Scene} newScene 
+     */
+    static loadScene(newScene) {
+
+        // Stop ticker while loading scene; performance and alleviates glitches
+        application.ticker.stop();
+
+        if (Renderer.scene instanceof Scene) {
+
+            // Remove all ticker functions from the old scene from the ticker
+            for (const tickerFunc of Renderer.scene.functions) {
+                application.ticker.remove(tickerFunc.func, tickerFunc.context);
+            }
+
+            // Reset the ticker function array in the old scene; in case it's loaded again
+            Renderer.scene.functions.length = 0;
+
+            // Purge all physbodies
+            Physics.purgeEntities();
+
+            // Reset camera coordinates
+            Camera.x = 0;
+            Camera.y = 0;
+        }
+
+        // Create new container object to pass to new scene creation pipeline
+        const container = new PIXI.Container();
+
+        // Use the PIXI loader to access game assets
+        application.loader.load((_, resources) => {
+
+            // Call the scene setup method, passing the game assets and new container; builds the scene
+            newScene.setup(resources, container);
+
+            // TODO check if necessary: Sort all the children in the container by its z-index; arbitrary I think, but gives me peace of mind
+            container.children.sort((a, b) => {
+                return a.zIndex - b.zIndex;
+            });
+
+            // Add ticker functions from this scene to the ticker
+            newScene.functions.forEach(func => {
+                application.ticker.add(func.func, func.context, func.priority);
+            });
+        });
+
+        // Set the current stage view to the new scene's container
+        application.stage = container;
+
+        /**
+         * TODO as the Scene options list grows, handle them here
+         */
+
+        const options = Object.assign({}, Scene.DEFAULT_OPTIONS, newScene.options);
+
+        application.renderer.backgroundColor = options.backgroundColor;
+
+        // Last thing before ticker start; set current stage variable to the new one
+        Renderer._scene = newScene;
+
+        // Restart the ticker now that the new scene has been loaded
+        application.ticker.start();
+    }
+
+    /**
+     * @param {String} name 
+     * @param {String} location
+     * @returns {AssetLoader} returns offloaded asset loader class for chaining
+     */
+    static addAsset(name, location) {
+        return AssetLoader.addAsset(name, location);
+    }
+
+    static get stage() {
+        return application.stage;
+    }
+
+    static get deltaMS() {
+        return application.ticker.deltaMS;
+    }
+}
+
+Object.defineProperty(Renderer, 'scene', {
+    
+    get() {
+        return Renderer._scene;
+    },
+
+    set(newScene) {
+        Renderer.loadScene(newScene);
+    },
+});
+
+Object.defineProperty(Renderer, '_scene', {
+    value: null,
+    writable: true,
+    enumerable: false,
+    configurable: false,
+});
+
+
+export class AssetLoader {
+
+    /**
+     * @param {String} name 
+     * @param {String} location 
+     */
+    static addAsset(name, location) {
+
+        application.loader.add(name, location);
+
+        return this;
+    }
+}
+
+export class TickerFunction {
+
+    /**
+     * A function that will be run by the ticker when its scene is loaded
+     * @param {Function} func The function to be run
+     * @param {*} context The context of the function; helps with removal, usually this or the scene it resides in. Defaults to null.
+     * @param {Number} priority The priority of the function; functions are executed in descending order based on priority. Defaults to 0.
+     */
+    constructor(func, context, priority) {
+        this.func = func;
+        this.context = context;
+        this.priority = priority;
+    }
+}
+
+export class Scene {
+
+    constructor(setup) {
+
+        this.setup = setup
+
+        Object.defineProperty(this, 'functions', {
+            value: [],
+            writable: false,
+            enumerable: true,
+            configurable: false,
+        });
+
+        this.options = {};
+    }
+}
+
+Object.defineProperty(Scene, 'DEFAULT_OPTIONS', {
+    value: {
+        backgroundColor: 0x999999,
+    },
+    writable: false,
+    enumerable: false,
+    configurable: false,
+});
 
 export class Vector2 {
 
@@ -105,10 +279,6 @@ export class Physbody {
         this.body = new AABB(pos, {x: pos.x + width, y: pos.y + height});
 
         this.sprite = sprite;
-        
-        this._debug = false;
-
-        this._hitbox = new PIXI.Graphics();
 
         if (this instanceof DynamicBody) {
             Physics.dynamicBodies.push(this);
@@ -126,32 +296,12 @@ export class Physbody {
     }
 
     /**
-     * @param {Boolean} enabled
-     */
-    set debugMode(enabled) {
-        if (enabled) this._drawHitbox();
-        this._debug = enabled;
-    }
-
-    get debugMode() {
-        return this._debug;
-    }
-
-    /**
      * @param {PIXI.Container} container 
      * @returns {Physbody} returns self for chaining or single line declarations
      */
     setParent(container) {
         this.sprite.setParent(container);
-        this._drawHitbox();
         return this;
-    }
-
-    _drawHitbox() {
-        if (this._hitbox.parent != this.sprite.parent) this._hitbox.setParent(this.sprite.parent);
-        this._hitbox.clear();
-        this._hitbox.lineStyle(1, 0x00ff00, 1, 0);
-        this._hitbox.drawRect(this.body.x, this.body.y, this.body.width, this.body.height);
     }
 }
 
@@ -279,7 +429,7 @@ Object.defineProperty(Camera, 'x', {
     set(x) {
         const diff = x - Camera.pos.x;
         Camera.pos.x = x;
-        for (const sprite of Renderer.getContainer().children) {
+        for (const sprite of Renderer.stage.children) {
             sprite.x -= diff;
         }
     },
@@ -293,7 +443,7 @@ Object.defineProperty(Camera, 'y', {
     set(y) {
         const diff = y - Camera.pos.y;
         Camera.pos.y = y;
-        for (const sprite of Renderer.getContainer().children) {
+        for (const sprite of Renderer.stage.children) {
             sprite.y -= diff;
         }
     },
@@ -307,7 +457,7 @@ export class Physics {
     static step() {
 
         // Get delta ms from renderer; amount of time between last frame and this frame in ms
-        const deltaMS = Renderer.getDeltaMS();
+        const deltaMS = Renderer.deltaMS;
 
         // Local array containing all the physbodies
         const dynamicBodies = Physics.dynamicBodies;
@@ -325,6 +475,10 @@ export class Physics {
             body.x += body.vx * deltaMS;
             body.y += body.vy * deltaMS;
         }
+    }
+
+    static getBodies() {
+        return Physics.staticBodies.concat(Physics.dynamicBodies);
     }
 
     static purgeEntities() {

@@ -1,28 +1,12 @@
-import { Scene, Renderer, TickerFunction } from './modules/renderer.js';
-import * as ENGINE from './modules/engine.js';
-import { getActiveKeys } from './modules/player.input.js';
-import { setCookie, getCookie } from './modules/cookie_monster.js';
+import * as ENGINE from './engine.js';
+import { getActiveKeys } from './keyboard_input.js';
 
 // Called first, initializes the renderer
-Renderer.init();
+ENGINE.Renderer.init();
 
 /**
  * Placholder for loading game assets, none currently
  */
-
-/**
- * Standard physics games collection of ticker functions. This is the standard physics game loop with collision detection. In order: Physics step, collision detection,
- * custom collision function execution, collision resolution, update dynamic physbody sprites.
- */
-
-const physics = new TickerFunction(ENGINE.Physics.step, this, -1);
-const collisionDetection = new TickerFunction(ENGINE.CollisionHandler.checkAllCollisions, this, -2);
-const customCollisionFunctions = new TickerFunction(ENGINE.CollisionHandler.runCustomCollisionFunctions, this, -3);
-const collisionResolution = new TickerFunction(ENGINE.CollisionHandler.resolveAllCollisions, this, -4);
-const updateSprites = new TickerFunction(ENGINE.Physics.updateSprites, this, -5);
-
-// Standard function set
-const stdSet = [physics, collisionDetection, customCollisionFunctions, collisionResolution, updateSprites];
 
 // Player movement
 class playerInput {
@@ -90,12 +74,7 @@ class playerInput {
     }
 }
 
-const other_scene = new Scene((resources, container) => {
-
-    other_scene.backgroundColor = 0x00ff00;
-});
-
-const dev_scene = new Scene((resources, container) => {
+const dev_scene = new ENGINE.Scene((resources, container) => {
 
     const colors = {
         PLAYER: 0xf4f5f7,
@@ -114,36 +93,48 @@ const dev_scene = new Scene((resources, container) => {
     playerSprite.tint = colors.PLAYER;
 
     const player = new ENGINE.DynamicBody({x: 100, y: 200}, 100, 100, playerSprite).setParent(container);
-    player.debugMode = true;
     player.ay = 0.003; // TODO implement gravity elsewhere
 
     const floor = new ENGINE.StandardBody({x: 0, y: 700}, 4000, 20, {color: colors.FLOOR}).setParent(container);
-    floor.debugMode = true;
 
     let terrain1 = new ENGINE.StandardBody({x: 200, y: 400}, 400, 300, {color: colors.TERRAIN}).setParent(container);
-    terrain1.debugMode = true;
 
     let terrain2 = new ENGINE.StandardBody({x: 800, y: 250}, 50, 450, {color: colors.TERRAIN}).setParent(container);
-    terrain2.debugMode = true;
 
     let terrain3 = new ENGINE.StandardBody({x: 800, y: 200}, 200, 50, {color: colors.TERRAIN}).setParent(container);
-    terrain3.debugMode = true;
 
-    dev_scene.backgroundColor = colors.BACKGROUND;
+    const debug = new PIXI.Graphics();
+
+    container.addChild(debug);
+
+    dev_scene.options = {
+        backgroundColor: colors.BACKGROUND,
+    }
 
     const movement = new playerInput(player);
 
-    const movementHandler = new TickerFunction(() => {
+    const movementHandler = new ENGINE.TickerFunction(() => {
         movement.movement();
     }, this, 1);
 
-    const physics = new TickerFunction(() => {
+    const physics = new ENGINE.TickerFunction(() => {
 
         ENGINE.Physics.step();
 
         ENGINE.CollisionHandler.checkAllCollisions();
 
         ENGINE.CollisionHandler.resolveAllCollisions();
+
+        const bodies = ENGINE.Physics.getBodies();
+
+        debug.clear();
+
+        for (const body of bodies) {
+            debug.lineStyle(1, 0x00ff00, 1, 0);
+            const screenCords = ENGINE.Camera.toScreenCoordinates(body.body.min);
+            // console.log(screenCords);
+            debug.drawRect(body.body.min.x, body.body.min.y, body.body.width, body.body.height);
+        }
 
         ENGINE.Camera.x = player.body.left - 640;
         ENGINE.Camera.y = player.body.bottom  - 360;
@@ -155,12 +146,5 @@ const dev_scene = new Scene((resources, container) => {
     dev_scene.functions.push(movementHandler, physics);
 });
 
-let scene = dev_scene;
-
 // Loads the default scene
-Renderer.loadScene(dev_scene);
-
-document.getElementById('display').onclick = () => {
-    scene = scene == dev_scene ? other_scene : dev_scene;
-    Renderer.loadScene(scene);
-}
+ENGINE.Renderer.scene = dev_scene;
