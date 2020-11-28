@@ -1,12 +1,5 @@
 import { Renderer } from './renderer.js';
 
-/**
- * HOLISTIC NOTES:
- * - engine class, update sprites for all physbodies
- * - stats html area
- * - debug mode, displays to debug section in HTML; create debug html section first
- */
-
 export class Vector2 {
 
     /**
@@ -17,6 +10,10 @@ export class Vector2 {
     constructor(x, y) {
         this.x = x;
         this.y = y;
+    }
+
+    clone() {
+        return Object.assign({}, this);
     }
 
     /**
@@ -34,164 +31,273 @@ export class Vector2 {
     }
 }
 
-export class Physbody {
+Object.defineProperty(Vector2, 'zero', {
+    value: new Vector2(0, 0),
+    writable: false,
+    enumerable: false,
+    configurable: false,
+});
+
+export class AABB {
 
     /**
-     * A physics entity; called here a physbody. Using axis-aligned bounding-box collision system, the parameters create an AABB that represents the sprite attached to it.
-     * @param {Number} x The x-coordinate of the bounding-box
-     * @param {Number} y The y-coordinate of the bounding-box
-     * @param {Number} width The width of the bounding-box
-     * @param {Number} height The height of the bounding-box
-     * @param {Physbody.TYPE} type The type of this physbody; dynamic is moving, static is stationary. Defaults to static.
-     * @param {Number} renderPriority The priority dictating when this physbody is rendered; rendered in descending order. Defaults to 0
-     * @param {PIXI.Texture} texture The texture for the sprite attached to this physbody. Defaults to white texture
+     * @param {Vector2} min 
+     * @param {Vector2} max 
      */
-    constructor(x, y, width, height, type = Physbody.TYPE.STATIC, renderPriority = 0, texture = PIXI.Texture.WHITE) {
-
-        // Position
-        this.x = x;
-        this.y = y;
-
-        // Velocity
-        this.vx = 0;
-        this.vy = 0;
-
-        // Acceleration
-        this.ax = 0;
-        this.ay = 0;
-
-        // Bounding box
-        this.width = width;
-        this.height = height;
-
-        // Cache bounding box representing this physbody's location and size
-        this.cache = new PIXI.Rectangle(x, y, width, height);
-
-        // Physbody type
-        this.type = type;
-
-        // Gravity
-        this.gravity = false;
-
-        // Wrapping y-axis
-        this.wrapY = false;
-
-        // Variable for whether or not physbody is on the ground
-        this.grounded = false;
-
-        // Custom collision functions array
-        this.customFunctions = [];
-
-        // Create and update sprite
-        this.sprite = new PIXI.Sprite(texture);
-        this.sprite.zIndex = renderPriority;
-        this.sprite.visible = false;
-        this.updateSprite();
-
-        // Add this physbody to, depending on the type, the static bodies array or dynamic bodies array
-        if (type == Physbody.TYPE.STATIC) {
-            Physics.staticBodies.push(this);
-        } else if (type == Physbody.TYPE.DYNAMIC) {
-            Physics.dynamicBodies.push(this);
-        } else {
-            Physics.symbolicBodies.push(this);
-        }
+    constructor(min, max) {
+        this.min = new Vector2(min.x, min.y);
+        this.max = new Vector2(max.x, max.y);
+        this.width = this.max.x - this.min.x;
+        this.height = this.max.y - this.min.y;
     }
 
-    /**
-     * The left edge of this physbody
-     */
-    getLeft() {
-        return this.x;
+    get x() {
+        return this.min.x;
     }
 
-    /**
-     * The right edge of this physbody
-     */
-    getRight() {
-        return this.x + this.width;
+    set x(x) {
+        this.min.x = x;
     }
 
-    /**
-     * The top edge of this physbody
-     */
-    getTop() {
-        return this.y;
+    get y() {
+        return this.min.y;
     }
 
-    /**
-     * The bottom edge of this physbody
-     */
-    getBottom() {
-        return this.y + this.height;
+    set y(y) {
+        this.min.y = y;
     }
 
-    /**
-     * The x-coordinate of the center of this physbody
-     */
-    getMidX() {
-        return this.x + this.width / 2;
+    get left() {
+        return this.min.x;
     }
 
-    /**
-     * The y-coordinate of the center of this physbody
-     */
-    getMidY() {
-        return this.y + this.height / 2;
+    get right() {
+        return this.min.x + this.width;
     }
 
-    /**
-     * Adds this physbody to the passed container
-     * @param {PIXI.Container} container The container to add this physbody to
-     * @returns {Physbody} Returns self in order to allow chaining
-     */
-    addToContainer(container) {
-        container.addChild(this.sprite);
-        return this;
+    get top() {
+        return this.min.y;
     }
 
-    /**
-     * Updates the attached sprites x and y coordinate, and height and width according to the current physbody values
-     */
-    updateSprite() {
-        this.sprite.x = this.x;
-        this.sprite.y = this.y;
-        this.sprite.width = this.width;
-        this.sprite.height = this.height;
+    get bottom() {
+        return this.min.y + this.height;
     }
 
-    updateCache() {
-        this.cache.x = this.x;
-        this.cache.y = this.y;
-        this.cache.width = this.width;
-        this.cache.height = this.height;
+    get mid() {
+        return new Vector2(this.min.x + this.width / 2, this.min.y + this.height / 2)
     }
 
-    /**
-     * Controls whether or not gravity is on for this physbody. Only works if the type is dynamic.
-     * @param {Boolean} enabled Whether or not gravity should be enabled
-     */
-    setGravity(enabled) {
-        this.gravity = enabled;
-    }
-
-    /**
-     * Controls whether or not y-axis wrapping is on for this physbody. Only works if the type is dynamic.
-     * @param {Boolean} enabled Whether or not y-axis wrapping should be enabled
-     */
-    setWrapY(enabled) {
-        this.wrapY = enabled;
+    clone() {
+        return new AABB(this.min.clone(), this.max.clone());
     }
 }
 
-/**
- * The type of the physbody, dynamic; moving, or static; stationary
- */
-Physbody.TYPE = {
-    DYNAMIC: 'dynamic',
-    STATIC: 'static',
-    SYMBOLIC: 'symbolic',
-};
+export class Physbody {
+
+    /**
+     * @param {Vector2} pos
+     * @param {Number} width
+     * @param {Number} height 
+     * @param {PIXI.Sprite} sprite 
+     */
+    constructor(pos, width, height, sprite = new PIXI.Sprite(PIXI.Texture.WHITE)) {
+
+        this.body = new AABB(pos, {x: pos.x + width, y: pos.y + height});
+
+        this.sprite = sprite;
+        
+        this._debug = false;
+
+        this._hitbox = new PIXI.Graphics();
+
+        if (this instanceof DynamicBody) {
+            Physics.dynamicBodies.push(this);
+        } else {
+            Physics.staticBodies.push(this);
+        }
+    }
+
+    get x() {
+        return this.body.x;
+    }
+    
+    get y() {
+        return this.body.y;
+    }
+
+    /**
+     * @param {Boolean} enabled
+     */
+    set debugMode(enabled) {
+        if (enabled) this._drawHitbox();
+        this._debug = enabled;
+    }
+
+    get debugMode() {
+        return this._debug;
+    }
+
+    /**
+     * @param {PIXI.Container} container 
+     * @returns {Physbody} returns self for chaining or single line declarations
+     */
+    setParent(container) {
+        this.sprite.setParent(container);
+        this._drawHitbox();
+        return this;
+    }
+
+    _drawHitbox() {
+        if (this._hitbox.parent != this.sprite.parent) this._hitbox.setParent(this.sprite.parent);
+        this._hitbox.clear();
+        this._hitbox.lineStyle(1, 0x00ff00, 1, 0);
+        this._hitbox.drawRect(this.body.x, this.body.y, this.body.width, this.body.height);
+    }
+}
+
+export class DynamicBody extends Physbody {
+
+    /**
+     * @param {Vector2} pos 
+     * @param {Number} width 
+     * @param {Number} height 
+     * @param {PIXI.Sprite} sprite 
+     */
+    constructor(pos, width, height, sprite = new PIXI.Sprite(PIXI.Texture.WHITE)) {
+
+        super(pos, width, height, sprite);
+
+        this.vx = 0;
+        this.vy = 0;
+        
+        this.ax = 0;
+        this.ay = 0;
+
+        this.grounded = false;
+
+        this._last = this.body.clone();
+    }
+
+    get x() {
+        return this.body.x;
+    }
+
+    /**
+     * @param {Number} x
+     */
+    set x(x) {
+        const dx = x - this.body.x;
+        this.body.x += dx;
+        this.sprite.x += dx;
+        this._last.x = this.body.x - dx;
+
+        this._onPositionUpdate();
+    }
+
+    get y() {
+        return this.body.y;
+    }
+
+    /**
+     * @param {Number} y
+     */
+    set y(y) {
+        const dy = y - this.body.y;
+        this.body.y += dy;
+        this.sprite.y += dy;
+        this._last.y = this.body.y - dy;
+
+        this._onPositionUpdate();
+    }
+
+    _onPositionUpdate() {
+
+        // TODO move functionality elsewhere
+        // Code to remove sprite from container for render performance
+        // const BUFFER = 100;
+        // const SCREEN_SIZE = Renderer.getRenderSize();
+
+        // const spriteMin = new Vector2(this.sprite.x, this.sprite.y);
+        // const spriteMax = new Vector2(this.sprite.x + this.sprite.width, this.sprite.y + this.sprite.height);
+
+        // if (spriteMax.x > SCREEN_SIZE.x + BUFFER
+        //     || spriteMin.x < -BUFFER - this.sprite.width
+        //     || spriteMax.y > SCREEN_SIZE.y + BUFFER
+        //     || spriteMin.y < -BUFFER - this.sprite.height) {
+        //     this.container.removeChild(this.sprite);
+        // } else if (!this.sprite.parent.children.includes(this.sprite)) {
+        //     this.addToContainer(this.container);
+        // }
+
+        // Debug draw outline
+        if (this.debugMode) {
+            this._drawHitbox();
+        }
+    }
+}
+
+export class StandardBody extends Physbody {
+
+    constructor(pos, width, height, appearance = {}) {
+
+        const defaults = {
+            color: 0xFFFFFF,
+            texture: PIXI.Texture.WHITE,
+        };
+
+        appearance = Object.assign({}, defaults, appearance);
+
+        const sprite = new PIXI.Sprite(appearance.texture);
+
+        super(pos, width, height, sprite);
+
+        this.sprite.x = pos.x;
+        this.sprite.y = pos.y;
+        this.sprite.width = width;
+        this.sprite.height = height;
+        this.sprite.tint = appearance.color;
+    }
+}
+
+export class Camera {
+
+    /**
+     * @param {Vector2} global 
+     */
+    static toScreenCoordinates(global) {
+        return new Vector2(global.x - Camera.x, global.y - Camera.y);
+    }
+}
+
+Camera.pos = Vector2.zero;
+
+Object.defineProperty(Camera, 'x', {
+    get() {
+        return Camera.pos.x;
+    },
+
+    set(x) {
+        const diff = x - Camera.pos.x;
+        Camera.pos.x = x;
+        for (const sprite of Renderer.getContainer().children) {
+            sprite.x -= diff;
+        }
+    },
+});
+
+Object.defineProperty(Camera, 'y', {
+    get() {
+        return Camera.pos.y;
+    },
+
+    set(y) {
+        const diff = y - Camera.pos.y;
+        Camera.pos.y = y;
+        for (const sprite of Renderer.getContainer().children) {
+            sprite.y -= diff;
+        }
+    },
+});
 
 export class Physics {
 
@@ -200,150 +306,62 @@ export class Physics {
      */
     static step() {
 
-        if (Physics.iteration % 4 == 0) Physics.purgeUnrendered();
-
         // Get delta ms from renderer; amount of time between last frame and this frame in ms
         const deltaMS = Renderer.getDeltaMS();
 
         // Local array containing all the physbodies
-        const entities = Physics.dynamicBodies;
+        const dynamicBodies = Physics.dynamicBodies;
 
         // Iterate through array and apply physics calculations to them; velocity and position iterations
-        for (const entity of entities) {
+        for (const body of dynamicBodies) {
 
-            // Apply old position to physbody cache
-            entity.updateCache();
-
-            // Update the entity's position cache
-            entity.cache_x = entity.x;
-            entity.cache_y = entity.y;
-
-            // Set the physbody's gravity, if enabled
-            if (entity.gravity) Physics.gravity(entity);
+            // Sympletic Euclidian physics updates
             
             // Update the physbody's velocity
-            entity.vx += entity.ax * deltaMS;
-            entity.vy += entity.ay * deltaMS;
+            body.vx += body.ax * deltaMS;
+            body.vy += body.ay * deltaMS;
 
             // Update the physbody's position
-            entity.x += entity.vx * deltaMS;
-            entity.y += entity.vy * deltaMS;
-
-            if (entity.wrapY) Physics.wrapY(entity);
-        }
-
-        Physics.iteration++;
-    }
-
-    /**
-     * Iterates through the dyanmic body array and updates each attached sprite
-     */
-    static updateSprites() {
-        // Updates each dynamic body's attached sprite
-        Physics.dynamicBodies.forEach((physbody, index) => {
-            physbody.updateSprite();
-        });
-    }
-
-    /**
-     * Iterates through each of the respective physbody arrays and removes any invisible items
-     */
-    static purgeUnrendered() {
-
-        // Remove all invisible dynamic bodies from its respective array
-        for (let i = 0; i < Physics.dynamicBodies.length; i++) {
-            if (!Physics.dynamicBodies[i].sprite.visible) {
-                Physics.dynamicBodies.splice(i, 1);
-                i--;
-            }
-        }
-
-        // Remove all invisible static bodies from its respective array
-        for (let i = 0; i < Physics.staticBodies.length; i++) {
-            if (!Physics.staticBodies[i].sprite.visible) {
-                Physics.staticBodies.splice(i, 1);
-                i--;
-            }
-        }
-
-        // Remove all invisible symbolic bodies from its respective array
-        for (let i = 0; i < Physics.symbolicBodies.length; i++) {
-            if (!Physics.symbolicBodies[i].sprite.visible) {
-                Physics.symbolicBodies.splice(i, 1);
-                i--;
-            }
+            body.x += body.vx * deltaMS;
+            body.y += body.vy * deltaMS;
         }
     }
 
-    /**
-     * Returns an array containing all physbodies; dynamic first, then static
-     * @returns {Array<Physbody>} An array containing all physbodies
-     */
-    static getBodies() {
-        return Physics.dynamicBodies.concat(Physics.staticBodies, Physics.symbolicBodies);
-    }
-
-    /**
-     * Set the y-axis acceleration of the physbody to the gravity modifier
-     * @param {Physbody} physbody The physbody to apply gravity to
-     */
-    static gravity(physbody) {
-        physbody.ay = physbody.grounded ? 0 : Physics.GRAVITY_AY;
-        if (physbody.vy > Physics.TERMINAL_VELOCITY) {
-            physbody.vy = Physics.TERMINAL_VELOCITY;
-        }
-    }
-
-    /**
-     * Wraps the physbody when it reaches the set extremes on the y-axis
-     * @param {Physbody} physbody The physbody to wrap on the y-axis
-     */
-    static wrapY(physbody) {
-        if (physbody.y > Physics.WRAP_Y_BOTTOM) {
-            physbody.y = Physics.WRAP_Y_TOP - physbody.height;
-        } else if (physbody.y < Physics.WRAP_Y_TOP - physbody.height) {
-            physbody.y = Physics.WRAP_Y_BOTTOM;
-        }
+    static purgeEntities() {
+        Physics.dynamicBodies.length = 0;
+        Physics.staticBodies.length = 0;
     }
 }
 
-/**
- * Create arrays which contain each physbody in the game, split into separate arrays by their type
- * @see Physbody.TYPE
- * @see Physics.getBodies
- */
-Physics.staticBodies = [];
-Physics.dynamicBodies = [];
-Physics.symbolicBodies = [];
+Object.defineProperty(Physics, 'dynamicBodies', {
+    value: [],
+    writable: false,
+    enumerable: false,
+    configurable: false,
+});
 
-// The current physics step the engine is on
-Physics.iteration = 0;
-
-/**
- * Create static constants for the Physics class; gravity acceleration, terminal velocity, and screen wrapping bounds
- * @see Physics.gravity
- * @see Physics.wrapY
- */
-Physics.GRAVITY_AY = 0.0030; // 0.0035
-Physics.TERMINAL_VELOCITY = 4.5;
-Physics.WRAP_Y_BOTTOM = 920;
-Physics.WRAP_Y_TOP = -200;
+Object.defineProperty(Physics, 'staticBodies', {
+    value: [],
+    writable: false,
+    enumerable: false,
+    configurable: false,
+});
 
 export class CollisionHandler {
 
     /**
      * Test if there is a collision between the two supplied physbodies
-     * @param {Physbody} dynamicBody The moving body in this collision instance
-     * @param {Physbody} staticBody The stationary body in this collision instance
+     * @param {AABB} body1 The moving body in this collision instance
+     * @param {AABB} body2 The stationary body in this collision instance
      * @returns {Boolean} The boolean outcome of the collision test; true if colliding, false if not
      */
-    static isColliding(dynamicBody, staticBody) {
+    static isColliding(body1, body2) {
 
         // If any of the following conditions are true, the bodies cannot be colliding
-        if (dynamicBody.getRight() < staticBody.getLeft()
-            || dynamicBody.getLeft() > staticBody.getRight()
-            || dynamicBody.getTop() > staticBody.getBottom()
-            || dynamicBody.getBottom() < staticBody.getTop()) {
+        if (body1.right < body2.left
+            || body1.left > body2.right
+            || body1.top > body2.bottom
+            || body1.bottom < body2.top) {
             return false;
         }
 
@@ -353,19 +371,19 @@ export class CollisionHandler {
 
     /**
      * Calculates the overlap of the two bodies, returning a vector of the overlap in the x and y axes respectively
-     * @param {Physbody} dynamicBody The dynamic body in the collision
-     * @param {Physbody} staticBody The static body in the collision
+     * @param {AABB} body1 The dynamic body in the collision
+     * @param {AABB} body2 The static body in the collision
      * @returns {Vector2} Returns the overlap in both axes as a 2D vector
      */
-    static calculateOverlap(dynamicBody, staticBody) {
+    static calculateCollisionManifold(body1, body2) {
 
         // Difference between the mid points of the two bodies; x and y coordinate
-        const dMidX = staticBody.getMidX() - dynamicBody.getMidX();
-        const dMidY = staticBody.getMidY() - dynamicBody.getMidY();
+        const dMidX = Math.abs(body2.mid.x - body1.mid.x);
+        const dMidY = Math.abs(body2.mid.y - body1.mid.y);
 
         // Calculates the overlap depth on both the x and y axes
-        const overlapX = Math.abs((Math.abs(dMidX) - (dynamicBody.width + staticBody.width) / 2));
-        const overlapY = Math.abs((Math.abs(dMidY) - (dynamicBody.height + staticBody.height) / 2));
+        const overlapX = Math.abs(dMidX - (body1.width + body2.width) / 2);
+        const overlapY = Math.abs(dMidY - (body1.height + body2.height) / 2);
 
         // Returns both overlaps in a vector form
         return new Vector2(overlapX, overlapY);
@@ -375,12 +393,11 @@ export class CollisionHandler {
      * Checks the collisions between all dynamic bodies and all static bodies. If there is a collision, push to an array containing all collisions this game step.
      * The collision array is ordered by overlap area; significance of collision, the most important collision is resolved first.
      */
-    static checkCollisions() {
+    static checkAllCollisions() {
 
         // Arrays for dynamic bodies and static bodies
         const dynamicBodies = Physics.dynamicBodies;
         const staticBodies = Physics.staticBodies;
-        const symbolicBodies = Physics.symbolicBodies;
 
         // Iterate through array of dynamic bodies
         for (const dynamicBody of dynamicBodies) {
@@ -391,54 +408,28 @@ export class CollisionHandler {
             for (const staticBody of staticBodies) {
 
                 // If there is a collision between these bodies, calculate its overlap area and push it to the collisions array
-                if (CollisionHandler.isColliding(dynamicBody, staticBody)) {
+                if (CollisionHandler.isColliding(dynamicBody.body, staticBody.body)) {
 
-                    const overlap = CollisionHandler.calculateOverlap(dynamicBody, staticBody);
-
-                    // If the dynamic body if this collision has a custom collision function, add it to the custom collision function execution array
-                    if (dynamicBody.customFunctions.length > 0) CollisionHandler.customFunctionsThisStep.push.apply(CollisionHandler.customFunctionsThisStep, dynamicBody.customFunctions);
-
-                    // If the static body if this collision has a custom collision function, add it to the custom collision function execution array
-                    if (staticBody.customFunctions.length > 0) CollisionHandler.customFunctionsThisStep.push.apply(CollisionHandler.customFunctionsThisStep, staticBody.customFunctions);
+                    const overlap = CollisionHandler.calculateCollisionManifold(dynamicBody.body, staticBody.body);
 
                     // Add this collision to the array of collisions this game step
-                    CollisionHandler.collisionsThisStep.push({
+                    CollisionHandler.collisions.push({
                         dynamicBody: dynamicBody,
                         staticBody: staticBody,
                         overlapArea: overlap.x * overlap.y,
                     });
                 }
             }
-
-            // Iterate through the array of symbolic bodies to check for collisions between each dynamic body and each symbolic body
-            for (const symbolicBody of symbolicBodies) {
-
-                // If there is a collision between these bodies, add their custom collision function to the custom collision function execution array
-                if (CollisionHandler.isColliding(dynamicBody, symbolicBody, 0)) {
-
-                    // console.log('symbolic collision');
-
-                    // If the dynamic body has custom collision function(s), add them to the array
-                    if (dynamicBody.customFunctions.length > 0) CollisionHandler.customFunctionsThisStep.push.apply(CollisionHandler.customFunctionsThisStep, dynamicBody.customFunctions);
-
-                    // If the symbolic body has custom collision function(s), add them to the array
-                    if (symbolicBody.customFunctions.length > 0) CollisionHandler.customFunctionsThisStep.push.apply(CollisionHandler.customFunctionsThisStep, symbolicBody.customFunctions);
-                }
-            }
-
-            /**
-             * IF THERE IS NEED TO COLLIDE TWO DYNAMIC BODIES, IMPLEMENT HERE
-             */
         }
 
         // Sort array containing collisions this physics by descending order, pertaining to each collision's overlap area
-        CollisionHandler.collisionsThisStep.sort((a, b) => {
-            return b.overlapArea - a.overlapArea
+        CollisionHandler.collisions.sort((a, b) => {
+            return a.overlapArea - b.overlapArea
         });
     }
 
     /**
-
+     * TODO new name for parameters?
      * Resolve a collision between two physbodies; one dynamic, or moving, and one static, or stationary
      * @param {Physbody} dynamicBody The moving body in this collision equation
      * @param {Physbody} staticBody The static body in this collision equation
@@ -446,27 +437,28 @@ export class CollisionHandler {
     static resolveCollision(dynamicBody, staticBody) {
 
         // Determine what collision section
-        const cachedDyanmicBody = dynamicBody.cache;
+        const lastState = dynamicBody._last;
 
-        const cacheInWidth = cachedDyanmicBody.right > staticBody.getLeft() && cachedDyanmicBody.left < staticBody.getRight();
-        const cacheInHeight = cachedDyanmicBody.bottom > staticBody.getTop() && cachedDyanmicBody.top < staticBody.getBottom();
+        // TODO check =?
+        const lastInWidth = lastState.right > staticBody.body.left && lastState.left < staticBody.body.right;
+        const lastInHeight = lastState.bottom > staticBody.body.top && lastState.top < staticBody.body.bottom;
 
-        const overlap = CollisionHandler.calculateOverlap(dynamicBody, staticBody);
+        const overlap = CollisionHandler.calculateCollisionManifold(dynamicBody.body, staticBody.body);
 
-        if (cacheInWidth && cachedDyanmicBody.bottom <= staticBody.getTop()) {
+        if (lastInWidth && lastState.bottom <= staticBody.body.top) {
             // will be top collision
             dynamicBody.y -= overlap.y;
             dynamicBody.vy = 0;
             dynamicBody.grounded = true;
-        } else if (cacheInWidth && cachedDyanmicBody.top >= staticBody.getBottom()) {
+        } else if (lastInWidth && lastState.top >= staticBody.body.bottom) {
             // will be bottom collision
             dynamicBody.y += overlap.y;
             dynamicBody.vy = 0;
-        } else if (cacheInHeight && cachedDyanmicBody.right <= staticBody.getLeft()) {
+        } else if (lastInHeight && lastState.right <= staticBody.body.left) {
             // will be left collision
             dynamicBody.x -= overlap.x;
             dynamicBody.vx = 0;
-        } else if (cacheInHeight && cachedDyanmicBody.left >= staticBody.getRight()) {
+        } else if (lastInHeight && lastState.left >= staticBody.body.right) {
             // will be right collision
             dynamicBody.x += overlap.x;
             dynamicBody.vx = 0;
@@ -480,23 +472,23 @@ export class CollisionHandler {
              */
 
             // Get midpoints of cached dyanmic body and static body
-            let cachedBodyMid = new Vector2(cachedDyanmicBody.x + cachedDyanmicBody.width / 2, cachedDyanmicBody.y + cachedDyanmicBody.height / 2);
-            let staticBodyMid = new Vector2(staticBody.getMidX(), staticBody.getMidY());
+            let lastStateMid = lastState.mid;
+            let staticBodyMid = staticBody.body.mid;
 
             // Cached dynamic body is above the static body
-            if (cachedBodyMid.y < staticBodyMid.y) {
+            if (lastStateMid.y < staticBodyMid.y) {
                 
                 // Cached dynamic body is to the left of the static body
-                if (cachedBodyMid.x < staticBodyMid.x) {
+                if (lastStateMid.x < staticBodyMid.x) {
 
-                    const dynamicBodyBottomRight = new Vector2(dynamicBody.getRight(), dynamicBody.getBottom());
-                    const cachedBodyBottomRight = new Vector2(cachedDyanmicBody.right, cachedDyanmicBody.bottom);
-                    const staticBodyTopLeft = new Vector2(staticBody.getLeft(), staticBody.getTop());
+                    const dynamicBodyBottomRight = new Vector2(dynamicBody.body.right, dynamicBody.body.bottom);
+                    const lastStateBottomRight = new Vector2(lastState.right, lastState.bottom);
+                    const staticBodyTopLeft = new Vector2(staticBody.body.left, staticBody.body.top);
                     
-                    const dynamicBodyChangeSlope = Vector2.slope(dynamicBodyBottomRight, cachedBodyBottomRight);
-                    const cachedToCornerSlope = Vector2.slope(cachedBodyBottomRight, staticBodyTopLeft);
+                    const dynamicBodyChangeSlope = Vector2.slope(dynamicBodyBottomRight, lastStateBottomRight);
+                    const lastStateToCornerSlope = Vector2.slope(lastStateBottomRight, staticBodyTopLeft);
 
-                    if (dynamicBodyChangeSlope > cachedToCornerSlope) {
+                    if (dynamicBodyChangeSlope > lastStateToCornerSlope) {
                         dynamicBody.y -= overlap.y;
                         dynamicBody.grounded = true; // remove if glitchy
                     } else {
@@ -505,16 +497,16 @@ export class CollisionHandler {
                 }
                 
                 // Cached dynamic body is to the right of the static body
-                else if (cachedBodyMid.x > staticBodyMid.x) {
+                else if (lastStateMid.x > staticBodyMid.x) {
 
-                    const dynamicBodyBottomLeft = new Vector2(dynamicBody.getLeft(), dynamicBody.getBottom());
-                    const cachedBodyBottomLeft = new Vector2(cachedDyanmicBody.left, cachedDyanmicBody.bottom);
-                    const staticBodyTopRight = new Vector2(staticBody.getRight(), staticBody.getTop());
+                    const dynamicBodyBottomLeft = new Vector2(dynamicBody.body.left, dynamicBody.body.bottom);
+                    const lastStateBottomLeft = new Vector2(lastState.left, lastState.bottom);
+                    const staticBodyTopRight = new Vector2(staticBody.body.right, staticBody.body.top);
 
-                    const dynamicBodyChangeSlope = Vector2.slope(dynamicBodyBottomLeft, cachedBodyBottomLeft);
-                    const cachedToCornerSlope = Vector2.slope(cachedBodyBottomLeft, staticBodyTopRight);
+                    const dynamicBodyChangeSlope = Vector2.slope(dynamicBodyBottomLeft, lastStateBottomLeft);
+                    const lastStateToCornerSlope = Vector2.slope(lastStateBottomLeft, staticBodyTopRight);
 
-                    if (dynamicBodyChangeSlope > cachedToCornerSlope) {
+                    if (dynamicBodyChangeSlope > lastStateToCornerSlope) {
                         dynamicBody.y -= overlap.y;
                         dynamicBody.grounded = true; // remove if glitchy
                     } else {
@@ -524,19 +516,19 @@ export class CollisionHandler {
             }
             
             // Cached dynamic body is below the static body
-            else if (cachedBodyMid.y > staticBodyMid.y) {
+            else if (lastStateMid.y > staticBodyMid.y) {
 
                 // Cached dynamic body is to the left of the static body
-                if (cachedBodyMid.x < staticBodyMid.x) {
+                if (lastStateMid.x < staticBodyMid.x) {
 
-                    const dynamicBodyTopRight = new Vector2(dynamicBody.getRight(), dynamicBody.getTop());
-                    const cachedBodyTopRight = new Vector2(cachedDyanmicBody.right, cachedDyanmicBody.top);
-                    const staticBodyBottomLeft = new Vector2(staticBody.getLeft(), staticBody.getBottom());
+                    const dynamicBodyTopRight = new Vector2(dynamicBody.body.right, dynamicBody.body.top);
+                    const lastStateTopRight = new Vector2(lastState.right, lastState.top);
+                    const staticBodyBottomLeft = new Vector2(staticBody.body.left, staticBody.body.bottom);
 
-                    const dynamicBodyChangeSlope = Vector2.slope(dynamicBodyTopRight, cachedBodyTopRight);
-                    const cachedToCornerSlope = Vector2.slope(cachedBodyTopRight, staticBodyBottomLeft);
+                    const dynamicBodyChangeSlope = Vector2.slope(dynamicBodyTopRight, lastStateTopRight);
+                    const lastStateToCornerSlope = Vector2.slope(lastStateTopRight, staticBodyBottomLeft);
 
-                    if (dynamicBodyChangeSlope < cachedToCornerSlope) {
+                    if (dynamicBodyChangeSlope < lastStateToCornerSlope) {
                         dynamicBody.y += overlap.y;
                     } else {
                         dynamicBody.x -= overlap.x;
@@ -544,16 +536,16 @@ export class CollisionHandler {
                 }
                 
                 // Cached dynamic body is to the right of the static body
-                else if (cachedBodyMid.x > staticBodyMid.x) {
+                else if (lastStateMid.x > staticBodyMid.x) {
 
-                    const dynamicBodyTopLeft = new Vector2(dynamicBody.getLeft(), dynamicBody.getTop());
-                    const cachedBodyTopLeft = new Vector2(cachedDyanmicBody.left, cachedDyanmicBody.top);
-                    const staticBodyBottomRight = new Vector2(staticBody.getRight(), staticBody.getBottom());
+                    const dynamicBodyTopLeft = new Vector2(dynamicBody.body.left, dynamicBody.body.top);
+                    const lastStateTopLeft = new Vector2(lastState.left, lastState.top);
+                    const staticBodyBottomRight = new Vector2(staticBody.body.right, staticBody.body.bottom);
 
-                    const dynamicBodyChangeSlope = Vector2.slope(dynamicBodyTopLeft, cachedBodyTopLeft);
-                    const cachedToCornerSlope = Vector2.slope(cachedBodyTopLeft, staticBodyBottomRight);
+                    const dynamicBodyChangeSlope = Vector2.slope(dynamicBodyTopLeft, lastStateTopLeft);
+                    const lastStateToCornerSlope = Vector2.slope(lastStateTopLeft, staticBodyBottomRight);
 
-                    if (dynamicBodyChangeSlope < cachedToCornerSlope) {
+                    if (dynamicBodyChangeSlope < lastStateToCornerSlope) {
                         dynamicBody.y += overlap.y;
                     } else {
                         dynamicBody.x += overlap.x;
@@ -566,10 +558,10 @@ export class CollisionHandler {
     /**
      * Resolve all collisions this game step
      */
-    static resolveCollisions() {
+    static resolveAllCollisions() {
 
         // Array of all collisions this game step
-        const collisions = CollisionHandler.collisionsThisStep;
+        const collisions = CollisionHandler.collisions;
 
         // Iterate through each collision
         for (const collision of collisions) {
@@ -579,29 +571,14 @@ export class CollisionHandler {
         }
 
         // After collisions have been resolved, clear array for next game step
-        CollisionHandler.collisionsThisStep = [];
-    }
-
-    /**
-     * Execute all custom collision functions this step in the execution array
-     */
-    static executeCustomCollisionFunctions() {
-
-        // Array of all custom collision functions this step
-        const customFunctions = CollisionHandler.customFunctionsThisStep;
-
-        // Execute each function
-        for (const func of customFunctions) {
-            func();
-        }
-
-        // Clear the array for the next step
-        CollisionHandler.customFunctionsThisStep = [];
+        CollisionHandler.collisions.length = 0;
     }
 }
 
 // An array containing all of the collisions this game step
-CollisionHandler.collisionsThisStep = [];
-
-// An array containing all of the custom collision functions to be executed this game step
-CollisionHandler.customFunctionsThisStep = [];
+Object.defineProperty(CollisionHandler, 'collisions', {
+    value: [],
+    writable: false,
+    enumerable: false,
+    configurable: false,
+});

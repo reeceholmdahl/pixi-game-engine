@@ -1,8 +1,10 @@
-import { Physics } from './engine.js';
+import { Camera, Physics, Vector2 } from './engine.js';
 
 // Screen dimension constants, in pixels
-const RENDER_WIDTH = 1280;
-const RENDER_HEIGHT = 720;
+export const RENDER_WIDTH = 1280;
+
+export const RENDER_HEIGHT = 720;
+
 const HTML_PARENT_NAME = 'display';
 
 /**
@@ -59,6 +61,8 @@ export class Scene {
 
         // Sprite container
         this.container = new PIXI.Container();
+
+        this.backgroundColor = 0x000000;
     }
 }
 
@@ -88,6 +92,18 @@ export class Renderer {
         return AssetLoader.add(name, location);
     }
 
+    static setBackgroundColor(color) {
+        RENDERER.renderer.backgroundColor = color;
+    }
+
+    static getRenderSize() {
+        return new Vector2(RENDERER.view.width, RENDERER.view.height);
+    }
+
+    static getContainer() {
+        return RENDERER.stage;
+    }
+
     /**
      * Loads a scene to the PIXI renderer. @see Scene
      * @param {Scene} scene The scene to load
@@ -100,13 +116,7 @@ export class Renderer {
         // If the current scene was previously set, clean up Render class scene property for new scene to load
         if (Renderer.scene instanceof Scene) {
 
-            // Set all sprites of the old scene to invisible
-            for (const sprite of Renderer.scene.container.children) {
-                sprite.visible = false;
-            }
-
-            // After setting all of the old scene sprites invisible, purge them from the physics
-            Physics.purgeUnrendered();
+            Physics.purgeEntities();
 
             // Remove all functions from the old scene from the ticker
             for (const func of Renderer.scene.functions) {
@@ -114,8 +124,11 @@ export class Renderer {
             }
 
             // Reset the functions array in the old scene
-            Renderer.scene.functions = [];
+            Renderer.scene.functions.length = 0;
         }
+
+        Camera.x = 0;
+        Camera.y = 0;
 
         // Set the renderer scene to the new one
         Renderer.scene = scene;
@@ -128,11 +141,6 @@ export class Renderer {
 
             // Call the scene setup method; build the scene
             scene.setup(resources, container);
-
-            // Make all sprites part of this scene visible
-            for (const sprite of container.children) {
-                sprite.visible = true;
-            }
 
             container.children.sort((a, b) => {
                 return a.zIndex - b.zIndex;
@@ -149,6 +157,9 @@ export class Renderer {
 
         // Set the current stage view to the new scene's container
         RENDERER.stage = container;
+
+        // Set background color to the scene's
+        Renderer.setBackgroundColor(scene.backgroundColor);
 
         // Restart the ticker now that everything has been loaded
         RENDERER.ticker.start();
