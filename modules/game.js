@@ -113,6 +113,10 @@ const dev_scene = new ENGINE.Scene((resources, container) => {
     // Player movement class
     const movement = new playerInput(player);
 
+    window.addEventListener('mousedown', e => {
+        navigator.clipboard.writeText(1 / randomPhysicsSpeed);
+    });
+
     // Player movement ticker function
     const movementHandler = new ENGINE.TickerFunction(() => {
         movement.movement();
