@@ -20,8 +20,8 @@ class playerInput {
     movement() {
 
         // Movement constants
-        const move = 0.5;
-        const jump = 1;
+        const move = 500;
+        const jump = 1200;
         const doubleJumpMod = 1.025;
 
         // Get current active keys
@@ -70,7 +70,6 @@ class playerInput {
 
         // Set physbody velocities to calculated velocities
         this.physbody.vx = dx;
-        // this.physbody.vy = dy;
     }
 }
 
@@ -84,66 +83,140 @@ const dev_scene = new ENGINE.Scene((resources, container) => {
         DEBUG: 0x00ff00,
     };
 
-    const playerSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
-    playerSprite.x = 110;
-    playerSprite.y = 210;
-    playerSprite.width = 80;
-    playerSprite.height = 80;
-    playerSprite.texture = PIXI.Texture.WHITE;
-    playerSprite.tint = colors.PLAYER;
-
-    const player = new ENGINE.DynamicBody({x: 100, y: 200}, 100, 100, playerSprite).setParent(container);
-    player.ay = 0.003; // TODO implement gravity elsewhere
-
-    const floor = new ENGINE.StandardBody({x: 0, y: 700}, 4000, 20, {color: colors.FLOOR}).setParent(container);
-
-    let terrain1 = new ENGINE.StandardBody({x: 200, y: 400}, 400, 300, {color: colors.TERRAIN}).setParent(container);
-
-    let terrain2 = new ENGINE.StandardBody({x: 800, y: 250}, 50, 450, {color: colors.TERRAIN}).setParent(container);
-
-    let terrain3 = new ENGINE.StandardBody({x: 800, y: 200}, 200, 50, {color: colors.TERRAIN}).setParent(container);
-
-    const debug = new PIXI.Graphics();
-
-    container.addChild(debug);
-
+    // Scene options
     dev_scene.options = {
         backgroundColor: colors.BACKGROUND,
-    }
+        debug: false,
+    };
 
+    // Build player
+    const playerSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
+    playerSprite.anchor.set(0.5);
+    playerSprite.width = 56;
+    playerSprite.height = 56;
+    playerSprite.texture = PIXI.Texture.WHITE;
+    playerSprite.tint = colors.PLAYER;
+    const player = new ENGINE.DynamicBody({x: 0, y: 300}, 64, 64, playerSprite).setParent(container);
+    player.ay = 4000; // TODO implement gravity elsewhere
+
+    // Build floor
+    const floor = new ENGINE.StandardBody({x: -1000, y: 630}, 4000, 300, {color: colors.FLOOR}).setParent(container);
+
+    // Build terrain
+    const terrain1 = new ENGINE.StandardBody({x: 320, y: 510}, 480, 120, {color: colors.TERRAIN}).setParent(container);
+    const terrain2 = new ENGINE.StandardBody({x: 1120, y: 390}, 360, 240, {color: colors.TERRAIN}).setParent(container);
+    const terrain3 = new ENGINE.StandardBody({x: 1800, y: 270}, 320, 360, {color: colors.TERRAIN}).setParent(container);
+    const terrain4 = new ENGINE.StandardBody({x: 2480, y: 150}, 240, 60, {color: colors.TERRAIN}).setParent(container);
+
+    const randomPhysicsSpeed = 1 / (Math.random() * 90 + 10);
+
+    // Player movement class
     const movement = new playerInput(player);
 
+    // Player movement ticker function
     const movementHandler = new ENGINE.TickerFunction(() => {
         movement.movement();
     }, this, 1);
 
     const physics = new ENGINE.TickerFunction(() => {
 
-        ENGINE.Physics.step();
+        ENGINE.Physics.step(randomPhysicsSpeed);
+
+        ENGINE.Physics.updateSprites();
+
+        ENGINE.Camera.x = player.lerpBody.left - 640;
+        ENGINE.Camera.y = player.lerpBody.bottom  - 360;
+        if (ENGINE.Camera.y + 640 > 640) {
+            ENGINE.Camera.y = 0;
+        }
+
+        // console.log(`jump: ${getActiveKeys().w} vy: ${player.vy}`);
+
+    }, this, 0);
+
+    dev_scene.functions.push(movementHandler, physics);
+});
+
+const test_scene = new ENGINE.Scene((resources, container) => {
+
+    test_scene.options = {
+        debug: true,
+        backgroundColor: 0x222244,
+    };
+
+    const playerSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
+    const player = new ENGINE.DynamicBody({x: 100, y: 100}, 100, 100, playerSprite).setParent(container);
+    playerSprite.anchor.set(0.5);
+    playerSprite.width = 80;
+    playerSprite.height = 80;
+    playerSprite.tint = 0xddddff;
+
+    const test = new ENGINE.StandardBody({x: 300, y: 250}, 200, 200).setParent(container);
+
+    const movement = new playerInput(player);
+
+    const movementFunction = new ENGINE.TickerFunction(() => { movement.movement() }, this, 1);
+
+    const physics = new ENGINE.TickerFunction(() => {
+
+        ENGINE.Physics.step(1/20);
 
         ENGINE.CollisionHandler.checkAllCollisions();
 
         ENGINE.CollisionHandler.resolveAllCollisions();
 
-        const bodies = ENGINE.Physics.getBodies();
+        ENGINE.Physics.updateSprites();
 
-        debug.clear();
+        // // console.log(ENGINE.Renderer.ticker.FPS);
 
-        for (const body of bodies) {
-            debug.lineStyle(1, 0x00ff00, 1, 0);
-            const screenCords = ENGINE.Camera.toScreenCoordinates(body.body.min);
-            // console.log(screenCords);
-            debug.drawRect(body.body.min.x, body.body.min.y, body.body.width, body.body.height);
-        }
+        // const newTime = performance.now();
+        // const frameTime = (newTime - currentTime) / 1000;
+        // // console.log(frameTime)
+        // currentTime = newTime;
 
-        ENGINE.Camera.x = player.body.left - 640;
-        ENGINE.Camera.y = player.body.bottom  - 360;
-        if (ENGINE.Camera.y + 720 > 720) {
-            ENGINE.Camera.y = 0;
-        }
-    }, this, 0);
+        // player._lastFrame.x = player.x;
+        // player._lastFrame.y = player.y;
 
-    dev_scene.functions.push(movementHandler, physics);
+        // const dt = 1/30;
+
+        // accumulator += frameTime;
+
+        // while (accumulator >= dt) {
+
+        //     player._last.x = player.x;
+        //     player._last.y = player.y;
+        //     player._last.vx = player.vx;
+        //     player._last.vy = player.vy;
+            
+        //     player.vx += player.ax * dt;
+        //     player.vy += player.ay * dt;
+
+        //     player.x += player.vx * dt
+        //     player.y += player.vy * dt
+
+        //     ENGINE.CollisionHandler.checkAllCollisions();
+
+        //     ENGINE.CollisionHandler.resolveAllCollisions();
+
+        //     accumulator -= dt;
+        // }
+
+        // const alpha = accumulator / dt;
+
+        // // console.log(i);
+
+        // // player.vx = player.vx * alpha + player._last.vx * (1.0 - alpha);
+        // // player.vy = player.vy * alpha + player._last.vy * (1.0 - alpha);
+        // // console.log(accumulator);
+
+        // // ENGINE.Physics.step();
+
+        // player.updateSprite(alpha);
+
+        // // ENGINE.Physics.updateSprites();
+    });
+
+    test_scene.functions.push(movementFunction, physics);
 });
 
 // Loads the default scene
