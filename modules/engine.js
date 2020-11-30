@@ -495,15 +495,16 @@ export class DynamicBody extends Physbody {
         this.ax = 0;
         this.ay = 0;
 
-        this.alpha = 0;
-
         // Boolean for if this physbody is "grounded," or on the ground
         this.grounded = false;
+
+        // The alpha for latest lerp, or the percentage through the next step physics step the lerp body should be moved to
+        this.alpha = 0;
 
         // Internal last state of this physbody
         this._last = this.body.clone();
 
-        // Internal body for linearly interpolated position
+        // Internal body representing the linearly interpolated position of this physbody
         this._lerpBody = this.body.clone();
     }
 
@@ -543,17 +544,29 @@ export class DynamicBody extends Physbody {
         // this._last.y = this.body.y - dy;
     }
 
+    /**
+     * Calculates the interpolated position of the lerp body, updates the internal lerp body, and returns it.
+     * @returns {AABB} Returns the internal lerp body after updating its positions according to latest physics alpha. @see Physics.step
+     */
     get lerpBody() {
         this._lerpBody.x = this.body.mid.x * this.alpha + this._last.mid.x * (1.0 - this.alpha);
         this._lerpBody.y = this.body.mid.y * this.alpha + this._last.mid.y * (1.0 - this.alpha);
         return this._lerpBody;
     }
 
+    /**
+     * Updates the internal AABB (cache) representing the last state of this physbody
+     */
     updateCache() {
         this._last.x = this.x;
         this._last.y = this.y;
+        this._last.width = this.body.width;
+        this._last.height = this.body.height;
     }
 
+    /**
+     * Updates the sprite attached to this physbody with respect to the internal lerp body. Renders in local coordinates.
+     */
     updateSprite() {
         const localVector = Camera.toScreenCoordinates(this.lerpBody.min);
         this.sprite.x = localVector.x;
@@ -601,12 +614,19 @@ export class StandardBody extends Physbody {
 export class Camera {
 
     /**
-     * @param {Vector2} global 
+     * Converts global coordinates to screen coordinates
+     * @param {Vector2} global The global coordinates to convert
+     * @returns {Vector2} Returns the screen coordinates converted from the supplied vector
      */
     static toScreenCoordinates(global) {
         return new Vector2(global.x - Camera.x, global.y - Camera.y);
     }
 
+    /**
+     * Converts screen coordinates to global coordinates
+     * @param {Vector2} screen The screen coordinates to convert
+     * @returns {Vector2} Returns the global coordinates converted from the supplied vector
+     */
     static toGlobalCoordinates(screen) {
         return new Vector2(screen.x + Camera.x, screen.y + Camera.y);
     }
@@ -689,11 +709,13 @@ export class Physics {
          * Physics calculations
          */
 
+        // If frame time accumulator is greater than or equal to one time step, loop through and decrement accumulator by one time step
         while (Physics.accumulator >= dt) {
 
             // Iterate through dynamic bodies array and apply physics calculations to them; Sympletic Euclidian physics update
             for (const body of Physics.dynamicBodies) {
 
+                // Update cached location of physbody
                 body.updateCache();
 
                 // Update the physbody's velocity first
@@ -705,28 +727,36 @@ export class Physics {
                 body.y += body.vy * dt;
             }
 
+            // Check all collisions
             CollisionHandler.checkAllCollisions();
 
+            // Resolve all collisions
             CollisionHandler.resolveAllCollisions();
 
+            // Decrement frame time accumulator by one time step
             Physics.accumulator -= dt;
         }
 
+        // What percentage is the remaining frame time accumulator of one time step
         const alpha = Physics.accumulator / dt;
         
-        // Iterate through dynamic bodies array and apply physics calculations to them; Sympletic Euclidian physics update
+        /**
+         * TODO is this where I want to handle physbody grounded checks?
+         * Dynamic physbody handlers that happen regardless of physics accumulator:
+         * - If the physbody has no vertical velocity, it is grounded
+         * - Pass calculated alpha value to the phsybody for lerp body calculations
+         */
         for (const body of Physics.dynamicBodies) {
 
+            // If this physbody has no vertical velocity, set its state to grounded
             if (body.vy == 0) {
                 body.grounded = true;
-                // console.log('hi');
             } else {
                 body.grounded = false;
-                // console.log('fuck you');
             }
             
+            // Pass calculated alpha, or percentage of one time step remaining to pass for lerp body calculations
             body.alpha = alpha;
-            
         }
     }
 
@@ -745,16 +775,18 @@ export class Physics {
         Physics.staticBodies.length = 0;
     }
 
+    /**
+     * Iterates through the currently "alive" dynamic bodies and updates their sprites according to each body's respective lerp body
+     */
     static updateSprites() {
-        for (const body of Physics.dynamicBodies) {
-
-            body.updateSprite();
-            
-        }
+        Physics.dynamicBodies.forEach(body => body.updateSprite());
     }
 }
 
+// Time of last frame
 Physics.lastFrame = performance.now();
+
+// Accumulator for frame time remainder when divided into time step sized pieces
 Physics.accumulator = 0;
 
 // Define static property as a constant determining the largest frame time allowed to impact physics calculations
@@ -842,6 +874,7 @@ export class CollisionHandler {
                 // If there is a collision between these bodies, calculate its overlap area and push it to the collisions array
                 if (CollisionHandler.isColliding(dynamicBody.body, staticBody.body)) {
 
+                    // Collision manifold of the collision between the two supplied bodies; overlap size
                     const overlap = CollisionHandler.calculateCollisionManifold(dynamicBody.body, staticBody.body);
 
                     // Add this collision to the array of collisions this game step

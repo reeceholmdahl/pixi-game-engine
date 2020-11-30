@@ -108,14 +108,10 @@ const dev_scene = new ENGINE.Scene((resources, container) => {
     const terrain3 = new ENGINE.StandardBody({x: 1800, y: 270}, 320, 360, {color: colors.TERRAIN}).setParent(container);
     const terrain4 = new ENGINE.StandardBody({x: 2480, y: 150}, 240, 60, {color: colors.TERRAIN}).setParent(container);
 
-    const randomPhysicsSpeed = 1 / (Math.random() * 90 + 10);
+    const PHYS_DT = 1 / 30;
 
     // Player movement class
     const movement = new playerInput(player);
-
-    window.addEventListener('mousedown', e => {
-        console.log(1 / randomPhysicsSpeed);
-    });
 
     // Player movement ticker function
     const movementHandler = new ENGINE.TickerFunction(() => {
@@ -124,7 +120,7 @@ const dev_scene = new ENGINE.Scene((resources, container) => {
 
     const physics = new ENGINE.TickerFunction(() => {
 
-        ENGINE.Physics.step(randomPhysicsSpeed);
+        ENGINE.Physics.step(PHYS_DT);
 
         ENGINE.Physics.updateSprites();
 
@@ -133,8 +129,6 @@ const dev_scene = new ENGINE.Scene((resources, container) => {
         if (ENGINE.Camera.y + 640 > 640) {
             ENGINE.Camera.y = 0;
         }
-
-        // console.log(`jump: ${getActiveKeys().w} vy: ${player.vy}`);
 
     }, this, 0);
 
